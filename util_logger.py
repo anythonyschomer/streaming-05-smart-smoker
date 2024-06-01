@@ -23,7 +23,6 @@ In your code file, instead of print(), use logger.info().
 Levels include: debug, info, warning, error, and critical.
 @Author: Denise Case
 @Updated: 2021-08
-BR no issues to resolve
 ==========================================================================
 """
 
