@@ -6,94 +6,44 @@
     Date: May 31, 2024
 """
 
-import pika
-import sys
-import webbrowser
+# bbq_producer.py
+
 import csv
-from datetime import datetime
+import pika
 import time
-import logging
 
-logger = logging.getLogger(__name__)
+# RabbitMQ connection parameters
+rabbitmq_host = "localhost"
+rabbitmq_queue_01 = "01-smoker"
+rabbitmq_queue_02 = "02-food-A"
+rabbitmq_queue_03 = "03-food-B"
 
-from util_logger import setup_logger
-logger, logname = setup_logger(__file__)
+def get_rabbitmq_connection():
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host))
+    channel = connection.channel()
+    return connection, channel
 
+def publish_message(channel, queue_name, message):
+    channel.basic_publish(exchange='', routing_key=queue_name, body=message)
+    print(f"Published message to {queue_name}: {message}")
 
-def offer_rabbitmq_admin_site(show_offer: bool = True):
-    """Offer to open the RabbitMQ Admin website"""
-    if not show_offer: 
-        print("RabbitMQ Admin connection has been turned off.")
-        return
-    ans = input("Would you like to monitor RabbitMQ queues? y or n ")
-    print()
-    if ans.lower() == "y":
-        webbrowser.open_new("http://localhost:15672/#/queues")
-        print()
+def main():
+    with open("smoker-temps.csv", "r") as csvfile:
+        reader = csv.reader(csvfile)
+        next(reader)  # Skip the header row
 
-def rabbitmq_connection(host: str, queues: list):
-    """
-    Establishes a connection to the RabbitMQ server and declares queues.
-    Parameters:
-    host (str): the host name or IP address of the RabbitMQ server
-    queues (list): list of queue names
-    Returns:
-    conn: the RabbitMQ connection object
-    ch: the RabbitMQ channel object
-    """
-    try:
-        # create a blocking connection to the RabbitMQ server
-        conn = pika.BlockingConnection(pika.ConnectionParameters(host))
-        # use the connection to create a communication channel
-        ch = conn.channel()
-        # delete and declare new durable queues
-        for queue_name in queues:
-            ch.queue_delete(queue=queue_name)
-            ch.queue_declare(queue=queue_name, durable=True)
-            return conn, ch
-    except pika.exceptions.AMQPConnectionError as e:
-        logger.error(f"{e}")
-        sys.exit(1)
+        for row in reader:
+            timestamp, smoker_temp, food_a_temp, food_b_temp = row
 
-def send_message(timestamp: str, temperature: float, queue_name: str):
-    """Send a message to RabbitMQ"""
-    try:
-        conn, ch = rabbitmq_connection(host, queues)
-        # create a message tuple
-        message = f"{timestamp}, {temperature}"
+            # Publish messages to respective queues
+            connection, channel = get_rabbitmq_connection()
+            publish_message(channel, rabbitmq_queue_01, smoker_temp)
+            publish_message(channel, rabbitmq_queue_02, food_a_temp)
+            publish_message(channel, rabbitmq_queue_03, food_b_temp)
 
-        # publish the message to the queue
-        ch.basic_publish(exchange="", routing_key=queue_name, body=message)
-        logger.info(f"[X] Sent to queue{queue_name}: {message}")
-    except pika.exceptions.AMQPConnectionError as e:
-        logger.error(f"Error: Connection to RabbitMQ server failed: {e}")
-    finally: 
-        conn.close()
+            connection.close()
 
-def read_tasks(file_name):
-    with open(file_name, 'r') as csv_file:
-        reader = csv.reader(csv_file)
-        rows = list(reader)  # Convert the reader to a list of rows
+            time.sleep(30)  # Wait for 30 seconds before reading the next row
 
-        if len(rows) > 1:  # Check if there are rows other than the header
-            next(reader)  # Skip header row
-            for row in rows[1:]:  # Iterate over the remaining rows
-                # Process each row
-                ...
-        else:
-            logger.warning(f"The file '{file_name}' is empty or has only a header row.")
-
-# Standard Python idiom to indicate main program entry point
-# This allows us to import this module and use its functions
-# without executing the code below.
-# If this is the program being run, then execute the code below
-if __name__ == "__main__":  
-    # ask the user if they'd like to open the RabbitMQ Admin sitepyton
-    # Allow user to choose whether they would like to be directed to the Admin site 
-    offer_rabbitmq_admin_site(show_offer=False)
-    # create variables   
-    file_name = 'smoker-temps.csv'
-    host = "localhost"
-    queues = ["01-smoker", "02-food-A", "02-food-B"]
-    #send message to the queue
-    read_tasks(file_name)
+if __name__ == "__main__":
+    main()
