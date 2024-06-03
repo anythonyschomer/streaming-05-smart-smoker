@@ -1,12 +1,8 @@
 """
-    This program reads temperature data from a CSV file and sends the temperature
-    data to RabbitMQ queues for further processing
-    
-    Author: Anthony Schomer
-    Date: May 31, 2024
+BBQ Producer
+Author: Your Name
+Date: June 2, 2024
 """
-
-# bbq_producer.py
 
 import csv
 import pika
@@ -19,21 +15,38 @@ rabbitmq_queue_02 = "02-food-A"
 rabbitmq_queue_03 = "03-food-B"
 
 def get_rabbitmq_connection():
+    """
+    Create a RabbitMQ connection and channel.
+    Returns:
+        connection, channel
+    """
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host))
     channel = connection.channel()
     return connection, channel
 
 def publish_message(channel, queue_name, message):
+    """
+    Publish a message to a RabbitMQ queue.
+    Args:
+        channel: RabbitMQ channel
+        queue_name: Name of the queue
+        message: Message to be published
+    """
     channel.basic_publish(exchange='', routing_key=queue_name, body=message)
-    print(f"Published message to {queue_name}: {message}")
 
 def main():
-    with open("smoker-temps.csv", "r") as csvfile:
-        reader = csv.reader(csvfile)
+    input_file_name = "smoker-temps.csv"  # Replace with the actual file name
+
+    with open(input_file_name, 'r', newline='') as input_file:
+        reader = csv.reader(input_file)
         next(reader)  # Skip the header row
 
+        # Reading rows from CSV
         for row in reader:
-            timestamp, smoker_temp, food_a_temp, food_b_temp = row
+            timestamp = row[0]
+            smoker_temp = row[1]
+            food_a_temp = row[2]
+            food_b_temp = row[3]
 
             # Publish messages to respective queues
             connection, channel = get_rabbitmq_connection()
