@@ -1,12 +1,13 @@
 """
 BBQ Producer
-Author: Your Name
+Author: Anthony Schomer
 Date: June 2, 2024
 """
 
 import csv
 import pika
 import time
+import sys  # Import sys module
 
 # RabbitMQ connection parameters
 rabbitmq_host = "localhost"
@@ -33,9 +34,14 @@ def publish_message(channel, queue_name, message):
         message: Message to be published
     """
     channel.basic_publish(exchange='', routing_key=queue_name, body=message)
+    print(f"Sent message to {queue_name}: {message}")
+    sys.stdout.flush()  # Flush the output buffer
 
 def main():
     input_file_name = "smoker-temps.csv"  # Replace with the actual file name
+
+    print("Starting to process smoker-temps.csv...")
+    sys.stdout.flush()  # Flush the output buffer
 
     with open(input_file_name, 'r', newline='') as input_file:
         reader = csv.reader(input_file)
