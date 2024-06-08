@@ -37,32 +37,38 @@ def publish_message(channel, queue_name, message):
     print(f"Sent message to {queue_name}: {message}")
     sys.stdout.flush()  # Flush the output buffer
 
+def send_messages(channel, queue_name, csv_file):
+    """
+    Send messages from a CSV file to a RabbitMQ queue.
+
+    Args:
+        channel (pika.channel.Channel): The RabbitMQ channel object.
+        queue_name (str): The name of the queue to send messages to.
+        csv_file (str): The path to the CSV file containing the messages.
+    """
+    with open(csv_file, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row
+        for row in reader:
+            message = ' '.join(row)
+            channel.basic_publish(exchange='',
+                                  routing_key=queue_name,
+                                  body=message.encode())
+            print(f"Sent message: {message}")
+
 def main():
     input_file_name = "smoker-temps.csv"  # Replace with the actual file name
 
     print("Starting to process smoker-temps.csv...")
     sys.stdout.flush()  # Flush the output buffer
 
-    with open(input_file_name, 'r', newline='') as input_file:
-        reader = csv.reader(input_file)
-        next(reader)  # Skip the header row
+    connection, channel = get_rabbitmq_connection()
 
-        # Reading rows from CSV
-        for row in reader:
-            timestamp = row[0]
-            smoker_temp = row[1]
-            food_a_temp = row[2]
-            food_b_temp = row[3]
+    send_messages(channel, rabbitmq_queue_01, input_file_name)
+    send_messages(channel, rabbitmq_queue_02, input_file_name)
+    send_messages(channel, rabbitmq_queue_03, input_file_name)
 
-            # Publish messages to respective queues
-            connection, channel = get_rabbitmq_connection()
-            publish_message(channel, rabbitmq_queue_01, smoker_temp)
-            publish_message(channel, rabbitmq_queue_02, food_a_temp)
-            publish_message(channel, rabbitmq_queue_03, food_b_temp)
-
-            connection.close()
-
-            time.sleep(30)  # Wait for 30 seconds before reading the next row
+    connection.close()
 
 if __name__ == "__main__":
     main()
